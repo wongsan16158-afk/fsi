@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>消防處 SDN 電話核實及備用措施快速對照工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #F8FAFC;
+            color: #1E293B;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans TC", sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .sys-card {
+            transition: all 0.15s ease-in-out;
+        }
+        .sys-card.active {
+            background-color: #EFF6FF;
+            border-color: #3B82F6;
+            box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.15);
+        }
+        .defect-item.checked {
+            background-color: #FEF2F2;
+            border-color: #F87171;
+        }
+        @media print {
+            .no-print { display: none !important; }
+            body { background-color: white; }
+        }
+    </style>
+</head>
+<body class="pb-12">
+
+    <!-- Top Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-2.5">
+                <div class="w-3 h-7 bg-blue-600 rounded-full"></div>
+                <div>
+                    <h1 class="text-base sm:text-lg font-bold text-slate-800 leading-tight">SDN 電話核實及備用措施對照工具</h1>
+                    <p class="text-xs text-slate-500">依據 DPI / IV / 4.2.16 附錄 I 及 附錄 B (修訂指引)</p>
+                </div>
+            </div>
+            <button onclick="resetAll()" class="text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 px-3 py-1.5 rounded-lg border border-slate-200 transition">
+                重設全部
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-4 pt-4 space-y-5">
+
+        <!-- Top Opening Script Box -->
+        <section class="bg-amber-50/90 border border-amber-200 rounded-xl p-4 shadow-sm">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="space-y-1.5">
+                    <div class="inline-flex items-center space-x-1.5 bg-amber-100 text-amber-900 text-xs font-bold px-2.5 py-0.5 rounded-md border border-amber-300">
+                        <span>📞 電話通用開場白及必問 2 點</span>
+                    </div>
+                    <p class="text-sm sm:text-base font-medium text-amber-950 leading-relaxed">
+                        「你好，我係消防局值日主管。就貴公司發出嘅 SDN，想同你核實少少技術細節：
+                        <span class="underline decoration-amber-400 decoration-2 font-semibold">1. 今次停用影響邊幾層／邊個範圍？</span>
+                        <span class="underline decoration-amber-400 decoration-2 font-semibold">2. 現場受影響範圍有無另一套正常運作嘅『自動火警偵測系統』全面覆蓋？</span>」
+                    </p>
+                </div>
+
+                <!-- Toggle for Other Operative Detection System -->
+                <div class="bg-white border border-amber-200 rounded-lg p-3 shrink-0 flex items-center justify-between sm:justify-start space-x-3 shadow-xs">
+                    <div class="text-xs">
+                        <div class="font-bold text-slate-800">另有正常火警偵測系統覆蓋？</div>
+                        <div class="text-slate-500">可按附錄 B 豁免安裝 SFD</div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="otherDetectionToggle" class="sr-only peer" onchange="updateUI()">
+                        <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                    </label>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 1: Select Inoperative FSI -->
+        <section class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
+            <div class="flex items-center justify-between">
+                <h2 class="text-sm sm:text-base font-bold text-slate-800 flex items-center gap-2">
+                    <span class="bg-blue-600 text-white w-5 h-5 rounded-full text-xs flex items-center justify-center font-bold">1</span>
+                    點選 SDN 停用的消防系統（可多選）
+                </h2>
+                <span class="text-xs text-slate-500">支援同時點選「消防栓/喉轆 + 花灑」</span>
+            </div>
+
+            <div id="sysGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                <!-- Populated by JS -->
+            </div>
+        </section>
+
+        <!-- Step 2: Dynamic Script & Major Defect Checklist -->
+        <section id="step2Section" class="hidden space-y-4">
+            <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-4">
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                    <h2 class="text-sm sm:text-base font-bold text-slate-800 flex items-center gap-2">
+                        <span class="bg-blue-600 text-white w-5 h-5 rounded-full text-xs flex items-center justify-center font-bold">2</span>
+                        針對性電話追問話術 及 重要損壞（Major Defect）判定
+                    </h2>
+                    <button onclick="forceAllMajor()" class="text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3 py-1.5 rounded-lg transition">
+                        ⚡ 直接確認屬重要損壞（略過細項）
+                    </button>
+                </div>
+
+                <p class="text-xs text-slate-500 -mt-2">
+                    根據《DPI / IV / 4.2.16 附錄 I》，向 RFSIC 追問以下重點；<strong>只要勾選任何一項（或按上方直接確認），即判定為「重要損壞」</strong>：
+                </p>
+
+                <div id="dynamicQuestionsContainer" class="space-y-4">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 3: Real-time Judgment & Required Standby Means -->
+        <section id="step3Section" class="hidden">
+            <div id="resultBanner" class="rounded-xl p-4 sm:p-5 border shadow-sm transition-all space-y-4">
+                <!-- Populated by JS -->
+            </div>
+        </section>
+
+        <!-- Quick Reference Accordions (Tables from Appendix B & Appendix I) -->
+        <section class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+            <details class="group">
+                <summary class="flex items-center justify-between px-4 py-3.5 cursor-pointer hover:bg-slate-50 transition select-none">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-base">📊</span>
+                        <span class="text-sm font-bold text-slate-700">展開查閱：《附錄 B》完整備用措施速查總表（表 2 及 表 3）</span>
+                    </div>
+                    <span class="text-slate-400 group-open:rotate-180 transition-transform">▼</span>
+                </summary>
+                <div class="p-4 border-t border-slate-200 bg-slate-50/50 space-y-4 text-xs sm:text-sm overflow-x-auto">
+                    <table class="w-full border-collapse bg-white border border-slate-200 rounded-lg">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 border-b border-slate-200 text-left">
+                                <th class="p-2.5 border-r border-slate-200">停用的消防系統 (Inoperative FSI)</th>
+                                <th class="p-2.5 border-r border-slate-200 text-center">9L 水劑滅火筒 (FE)</th>
+                                <th class="p-2.5 border-r border-slate-200 text-center">獨立火警偵測器 (SFD)*</th>
+                                <th class="p-2.5 border-r border-slate-200 text-center">臨時手動警報 (TMFAD)</th>
+                                <th class="p-2.5 text-center">中繼供水應變計劃 (CP)</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-200 text-slate-700">
+                            <tr>
+                                <td class="p-2.5 border-r font-medium">消防栓／喉轆系統（花灑正常）</td>
+                                <td class="p-2.5 border-r text-center font-bold text-blue-700">✓ (每個喉轆位 1 支)</td>
+                                <td class="p-2.5 border-r text-center text-slate-400">—</td>
+                                <td class="p-2.5 border-r text-center text-slate-400">—</td>
+                                <td class="p-2.5 text-center text-slate-400">—</td>
+                            </tr>
+                            <tr>
+                                <td class="p-2.5 border-r font-medium">花灑系統（消防栓／喉轆正常）</td>
+                                <td class="p-2.5 border-r text-center text-slate-400">免除 (用喉轆滅火)</td>
+                                <td class="p-2.5 border-r text-center font-bold text-emerald-700">✓ (煙≤7.5m / 溫≤5.3m)</td>
+                                <td class="p-2.5 border-r text-center text-slate-400">—</td>
+                                <td class="p-2.5 text-center text-slate-400">—</td>
+                            </tr>
+                            <tr class="bg-rose-50/60">
+                                <td class="p-2.5 border-r font-bold text-rose-900">消防栓／喉轆 + 花灑系統 同時停用</td>
+                                <td class="p-2.5 border-r text-center font-bold text-rose-700">✓ (每個喉轆位 2 支)</td>
+                                <td class="p-2.5 border-r text-center font-bold text-emerald-700">✓ (煙≤7.5m / 溫≤5.3m)</td>
+                                <td class="p-2.5 border-r text-center text-slate-400">—</td>
+                                <td class="p-2.5 text-center text-slate-400">—</td>
+                            </tr>
+                            <tr>
+                                <td class="p-2.5 border-r font-medium">火警偵測系統</td>
+                                <td class="p-2.5 border-r text-center text-slate-400">—</td>
+                                <td class="p-2.5 border-r text-center font-bold text-emerald-700">✓ (煙≤7.5m / 溫≤5.3m)</td>
+                                <td class="p-2.5 border-r text-center text-slate-400">—</td>
+                                <td class="p-2.5 text-center text-slate-400">—</td>
+                            </tr>
+                            <tr>
+                                <td class="p-2.5 border-r font-medium">火警警報系統</td>
+                                <td class="p-2.5 border-r text-center text-slate-400">—</td>
+                                <td class="p-2.5 border-r text-center text-slate-400">—</td>
+                                <td class="p-2.5 border-r text-center font-bold text-amber-700">✓ (每個鐘掣位 1 個)</td>
+                                <td class="p-2.5 text-center text-slate-400">—</td>
+                            </tr>
+                            <tr>
+                                <td class="p-2.5 border-r font-medium">水霧系統（消防栓／喉轆正常）</td>
+                                <td class="p-2.5 border-r text-center text-slate-400">—</td>
+                                <td class="p-2.5 border-r text-center font-bold text-emerald-700">✓</td>
+                                <td class="p-2.5 border-r text-center text-slate-400">—</td>
+                                <td class="p-2.5 text-center text-slate-400">—</td>
+                            </tr>
+                            <tr class="bg-rose-50/60">
+                                <td class="p-2.5 border-r font-bold text-rose-900">消防栓／喉轆 + 水霧系統 同時停用</td>
+                                <td class="p-2.5 border-r text-center font-bold text-rose-700">✓ (每個喉轆位 2 支)</td>
+                                <td class="p-2.5 border-r text-center font-bold text-emerald-700">✓</td>
+                                <td class="p-2.5 border-r text-center text-slate-400">—</td>
+                                <td class="p-2.5 text-center text-slate-400">—</td>
+                            </tr>
+                            <tr>
+                                <td class="p-2.5 border-r font-medium">排煙系統</td>
+                                <td class="p-2.5 border-r text-center text-slate-400">—</td>
+                                <td class="p-2.5 border-r text-center font-bold text-emerald-700">✓ (毗鄰自動啟動裝置)</td>
+                                <td class="p-2.5 border-r text-center text-slate-400">—</td>
+                                <td class="p-2.5 text-center text-slate-400">—</td>
+                            </tr>
+                            <tr>
+                                <td class="p-2.5 border-r font-medium">樓梯加壓系統</td>
+                                <td class="p-2.5 border-r text-center text-slate-400">—</td>
+                                <td class="p-2.5 border-r text-center font-bold text-emerald-700">✓ (出路門 1m 範圍內)</td>
+                                <td class="p-2.5 border-r text-center text-slate-400">—</td>
+                                <td class="p-2.5 text-center text-slate-400">—</td>
+                            </tr>
+                            <tr>
+                                <td class="p-2.5 border-r font-medium">乾式上水管系統 / 街道消防栓系統</td>
+                                <td class="p-2.5 border-r text-center text-slate-400">註：按表1出水口配1支FE</td>
+                                <td class="p-2.5 border-r text-center text-slate-400">—</td>
+                                <td class="p-2.5 border-r text-center text-slate-400">—</td>
+                                <td class="p-2.5 text-center font-bold text-purple-700">✓ 行動分隊制定應變計劃</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p class="text-xs text-slate-500">
+                        * 註：若受影響範圍內有另一套正常運作的 FSI（如火警偵測系統）持續提供自動火警偵測功能，則無須裝設 SFD。上述僅為最低要求，主管人員（OIC）應按現場實際風險作出專業判斷。
+                    </p>
+                </div>
+            </details>
+        </section>
+
+    </main>
+
+    <script>
+        const fsiData = [
+            {
+                id: 'fhhr',
+                code: '1',
+                name: '消防栓／喉轆系統',
+                en: 'FH / HR System',
+                script: '「請問現時消防水缸係咪排空咗或斷開咗喉管？常用泵（Duty）同備用泵（Standby）係咪兩部都行唔到？有無拆喉、壞入水口閥門，或者同一層有超過 1 個喉嘴掣損壞？」',
+                defects: [
+                    '無供水（消防水缸乾塘／嚴重滲漏／連接水缸管道斷開）',
+                    '整套常用及備用消防泵（Duty & Standby）／中途增壓泵全部損壞或故障',
+                    '消防入水口（FS Inlet）／各水缸連接處之止回閥或截止閥損壞',
+                    '更換或斷開消防栓／喉轆供水管道',
+                    '低水位訊號故障／損壞（Low water level signal fault）',
+                    '同一樓層多於 1 個噴嘴控制閥（Nozzle control valve）損壞'
+                ]
+            },
+            {
+                id: 'sprinkler',
+                code: '2',
+                name: '花灑系統',
+                en: 'Sprinkler System',
+                script: '「請問花灑水缸係咪無水或者斷咗大喉？常用泵、備用泵同 Jockey 泵係咪成套壞晒？有無關閉或損壞主控制閥（Main Valve）或副閥（Subsidiary Valve）？」',
+                defects: [
+                    '無供水（花灑水缸乾塘／嚴重滲漏／上水管或配水管道斷開）',
+                    '整套常用及備用花灑泵／中途增壓泵／保壓泵（Jockey Pump）全部損壞或故障',
+                    '花灑入水口／各水缸連接處之截止閥損壞',
+                    '低水位訊號故障／損壞',
+                    '主控制閥或副控制閥損壞／關閉（Main / Subsidiary valve defective or shutdown）'
+                ]
+            },
+            {
+                id: 'alarm',
+                code: '3',
+                name: '火警警報系統',
+                en: 'Fire Alarm System',
+                script: '「請問係咪總火警控制盤（Main Panel）壞咗？定係有電纜／控制模組故障？受影響嘅警鐘或者玻璃掣係咪涉及『連續樓層』（Consecutive floors）？」',
+                defects: [
+                    '任何連續樓層（Consecutive floors）之火警警鐘／手動擊碎玻璃掣故障',
+                    '電纜／配線／控制模組故障（Cable / wiring / control module fault）',
+                    '主控制盤故障（Main panel defective）'
+                ]
+            },
+            {
+                id: 'street_hydrant',
+                code: '4',
+                name: '街道消防栓系統',
+                en: 'Street Fire Hydrant',
+                script: '「請問係咪街井無水到、水缸乾塘、或者整套常用加備用泵壞晒？有無壓力開關、水流開關損壞，甚至街井出水口遺失？」',
+                defects: [
+                    '無供水（水缸乾塘／嚴重滲漏／連接水缸管道斷開）',
+                    '整套常用及備用消防泵全部損壞或故障',
+                    '水流開關／壓降偵測器／水泵啟動開關損壞或故障',
+                    '地底閥（Ground valves）／各水缸連接處截止閥損壞',
+                    '低水位訊號故障／損壞',
+                    '街井遺失（Hydrant missing）'
+                ]
+            },
+            {
+                id: 'waterspray',
+                code: '5',
+                name: '水霧系統',
+                en: 'Water Spray System',
+                script: '「請問水霧系統係咪無水供應或者整套正副泵壞晒？入水口閥門、導引花灑頭（Pilot sprinkler）、偵測器或者手動釋放掣有無損壞？」',
+                defects: [
+                    '無供水（水缸乾塘／嚴重滲漏／連接水缸管道斷開）',
+                    '整套常用及備用消防泵全部損壞或故障',
+                    '消防入水口／各水缸連接處截止閥損壞',
+                    '低水位訊號故障／損壞',
+                    '偵測器／導引花灑頭（Pilot sprinkler）／手動釋放裝置損壞'
+                ]
+            },
+            {
+                id: 'smoke',
+                code: '6',
+                name: '排煙系統',
+                en: 'Smoke Extraction',
+                script: '「請問係咪排煙風機（Fan）、控制開關或者連動嘅感煙偵測器壞咗？」',
+                defects: [
+                    '排煙風機／控制開關／感煙偵測器故障（Smoke extraction fan / control switch / smoke detector defective）'
+                ]
+            },
+            {
+                id: 'pressurization',
+                code: '7',
+                name: '樓梯加壓系統',
+                en: 'Staircase Pressurization',
+                script: '「請問樓梯加壓系統嘅送風機（Supply fan）、排風機（Air release fan）或者感煙偵測器係咪故障？」',
+                defects: [
+                    '送風機／排風機／感煙偵測器故障（Supply fan / air release fan / smoke detector defective）'
+                ]
+            },
+            {
+                id: 'dryriser',
+                code: '8',
+                name: '乾式上水管系統',
+                en: 'Dry Riser System',
+                script: '「請問乾式上水管係咪喉管破損斷開、消防入水口壞咗，定係有『連續樓層』嘅出水口損壞？」',
+                defects: [
+                    '任何連續樓層（Consecutive floors）之消防栓出水口損壞',
+                    '消防入水口損壞（FS inlet defective）',
+                    '上水管主喉損壞／斷開（Rising main damaged / disconnected）'
+                ]
+            },
+            {
+                id: 'detection',
+                code: '9',
+                name: '火警偵測系統 (睡眠風險)',
+                en: 'Fire Detection (Sleeping Risk)',
+                script: '「請問該處所（如酒店/賓館/院舍）係咪主控制盤（Main Panel）故障、線路訊號故障，或者直通消防通訊中心嘅電話專線（Direct line）斷咗？」',
+                defects: [
+                    '主控制盤故障（Main panel defective）',
+                    '電纜／配線／訊號故障（Cable / wiring / signal fault）',
+                    '直通電話線中斷（Direct telephone line disconnected）'
+                ]
+            }
+        ];
+
+        let selectedSys = new Set();
+        let checkedDefects = new Set();
+
+        function initGrid() {
+            const grid = document.getElementById('sysGrid');
+            grid.innerHTML = fsiData.map(sys => `
+                <button onclick="toggleSys('${sys.id}')" id="btn-${sys.id}" class="sys-card text-left p-3 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-slate-100 flex flex-col justify-between">
+                    <div class="flex items-center justify-between w-full mb-1">
+                        <span class="text-xs font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-700" id="badge-${sys.id}">系統 ${sys.code}</span>
+                        <span class="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center text-[10px]" id="check-${sys.id}"></span>
+                    </div>
+                    <div class="font-bold text-sm text-slate-800 leading-snug">${sys.name}</div>
+                    <div class="text-[11px] text-slate-500 mt-0.5">${sys.en}</div>
+                </button>
+            `).join('');
+        }
+
+        function toggleSys(id) {
+            if (selectedSys.has(id)) {
+                selectedSys.delete(id);
+                // Remove checked defects for this system
+                Array.from(checkedDefects).forEach(key => {
+                    if (key.startsWith(id + '__')) checkedDefects.delete(key);
+                });
+            } else {
+                selectedSys.add(id);
+            }
+            updateUI();
+        }
+
+        function toggleDefect(key) {
+            if (checkedDefects.has(key)) {
+                checkedDefects.delete(key);
+            } else {
+                checkedDefects.add(key);
+            }
+            updateUI();
+        }
+
+        function forceAllMajor() {
+            selectedSys.forEach(id => {
+                checkedDefects.add(id + '__0');
+            });
+            updateUI();
+        }
+
+        function resetAll() {
+            selectedSys.clear();
+            checkedDefects.clear();
+            document.getElementById('otherDetectionToggle').checked = false;
+            updateUI();
+        }
+
+        function updateUI() {
+            // Update Step 1 buttons
+            fsiData.forEach(sys => {
+                const btn = document.getElementById(`btn-${sys.id}`);
+                const badge = document.getElementById(`badge-${sys.id}`);
+                const check = document.getElementById(`check-${sys.id}`);
+                if (selectedSys.has(sys.id)) {
+                    btn.classList.add('active');
+                    badge.className = 'text-xs font-bold px-2 py-0.5 rounded bg-blue-600 text-white';
+                    check.className = 'w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold';
+                    check.innerHTML = '✓';
+                } else {
+                    btn.classList.remove('active');
+                    badge.className = 'text-xs font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-700';
+                    check.className = 'w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center text-[10px]';
+                    check.innerHTML = '';
+                }
+            });
+
+            const step2 = document.getElementById('step2Section');
+            const step3 = document.getElementById('step3Section');
+            const container = document.getElementById('dynamicQuestionsContainer');
+
+            if (selectedSys.size === 0) {
+                step2.classList.add('hidden');
+                step3.classList.add('hidden');
+                return;
+            }
+
+            step2.classList.remove('hidden');
+            step3.classList.remove('hidden');
+
+            // Render Step 2 cards
+            container.innerHTML = fsiData.filter(s => selectedSys.has(s.id)).map(sys => {
+                const sysHasMajor = sys.defects.some((_, idx) => checkedDefects.has(`${sys.id}__${idx}`));
+                return `
+                <div class="border ${sysHasMajor ? 'border-rose-300 bg-rose-50/20' : 'border-slate-200 bg-slate-50/50'} rounded-xl p-3.5 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div class="font-bold text-sm sm:text-base text-slate-800">
+                            ${sys.code}. ${sys.name} <span class="text-xs font-normal text-slate-500">(${sys.en})</span>
+                        </div>
+                        <span class="text-xs font-bold px-2.5 py-0.5 rounded-full ${sysHasMajor ? 'bg-rose-100 text-rose-800 border border-rose-300' : 'bg-slate-200 text-slate-600'}">
+                            ${sysHasMajor ? '⚠️ 已確認屬重要損壞' : '未勾選重要損壞'}
+                        </span>
+                    </div>
+
+                    <!-- Phone Script Highlight -->
+                    <div class="bg-amber-50 border border-amber-200/80 rounded-lg p-3 text-xs sm:text-sm text-amber-950 leading-relaxed">
+                        <span class="font-bold text-amber-800">🗣️ 電話追問 RFSIC：</span>${sys.script}
+                    </div>
+
+                    <!-- Defects Checklist -->
+                    <div class="space-y-1.5">
+                        ${sys.defects.map((d, idx) => {
+                            const key = `${sys.id}__${idx}`;
+                            const isChecked = checkedDefects.has(key);
+                            return `
+                            <div onclick="toggleDefect('${key}')" class="defect-item ${isChecked ? 'checked' : 'bg-white border-slate-200 hover:bg-slate-50'} border rounded-lg p-2.5 flex items-start space-x-2.5 cursor-pointer select-none transition">
+                                <input type="checkbox" ${isChecked ? 'checked' : ''} class="mt-0.5 h-4 w-4 text-rose-600 rounded border-slate-300 pointer-events-none">
+                                <span class="text-xs sm:text-sm ${isChecked ? 'font-bold text-rose-950' : 'text-slate-700'} leading-snug">${d}</span>
+                            </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+                `;
+            }).join('');
+
+            renderStep3();
+        }
+
+        function renderStep3() {
+            const banner = document.getElementById('resultBanner');
+            const otherDetection = document.getElementById('otherDetectionToggle').checked;
+
+            // Determine which selected systems have a confirmed major defect
+            const majorSys = new Set();
+            selectedSys.forEach(id => {
+                const sys = fsiData.find(s => s.id === id);
+                if (sys && sys.defects.some((_, idx) => checkedDefects.has(`${id}__${idx}`))) {
+                    majorSys.add(id);
+                }
+            });
+
+            if (majorSys.size === 0) {
+                banner.className = 'rounded-xl p-4 sm:p-5 border border-emerald-200 bg-emerald-50/70 shadow-sm space-y-2';
+                banner.innerHTML = `
+                    <div class="flex items-center space-x-2 text-emerald-900 font-bold text-base">
+                        <span>✅ 暫未構成「重要損壞」(Minor Defect Only)</span>
+                    </div>
+                    <p class="text-xs sm:text-sm text-emerald-800 leading-relaxed">
+                        若 RFSIC 確認現場並不涉及上方任何一項重要損壞特徵（例如只屬單一樓層個別部件維修、而水泵及主系統維持正常運作），則無須啟動《附錄 B》緊急備用措施。請提醒承辦商盡快完成維修並作日常記錄。
+                    </p>
+                `;
+                return;
+            }
+
+            // Calculate Standby Means according to Appendix B
+            let feText = null;
+            let sfdItems = [];
+            let tmfadText = null;
+            let cpText = null;
+
+            const hasFHHR = majorSys.has('fhhr');
+            const hasSprinkler = majorSys.has('sprinkler');
+            const hasWaterSpray = majorSys.has('waterspray');
+            const hasDryRiser = majorSys.has('dryriser');
+            const hasStreetHydrant = majorSys.has('street_hydrant');
+
+            // 1. Fire Extinguisher (FE) logic
+            if (hasFHHR && (hasSprinkler || hasWaterSpray)) {
+                feText = '受影響範圍內每個喉轆位配置 <strong>2 支 9 公升水劑滅火筒 (2 x 9L Water FE)</strong> <span class="text-xs font-normal text-rose-700">（因消防栓/喉轆與自動滅火系統同時停用）</span>';
+            } else if (hasFHHR) {
+                feText = '受影響範圍內每個喉轆位配置 <strong>1 支 9 公升水劑滅火筒 (1 x 9L Water FE)</strong>';
+            } else if ((hasSprinkler || hasWaterSpray) && !hasFHHR) {
+                feText = '<span class="text-emerald-800 font-semibold">免除額外滅火筒（因消防栓／喉轆系統維持正常運作，佔用人可用喉轆作初期滅火）</span>';
+            }
+
+            if (hasDryRiser) {
+                const dryFe = '乾式上水管受影響範圍內每個消防栓出水口配置 <strong>1 支 9 公升水劑滅火筒</strong>（按表 1 手動滅火功能要求）';
+                feText = feText ? (feText + '<br>• ' + dryFe) : dryFe;
+            }
+
+            // 2. Standalone Fire Detector (SFD) logic
+            if (majorSys.has('sprinkler') || majorSys.has('waterspray') || majorSys.has('detection')) {
+                if (otherDetection && !majorSys.has('detection')) {
+                    sfdItems.push('<span class="text-emerald-800 font-semibold">免除安裝 SFD（因現場另有正常運作的火警偵測系統全面覆蓋受影響範圍）</span>');
+                } else {
+                    sfdItems.push('於每個防火分區樓板／假天花底安裝 <strong>獨立式火警偵測器 (SFD)</strong>，水平距離：<strong>感煙 ≤ 7.5米</strong> 或 <strong>感溫／多感應器 ≤ 5.3米</strong> <span class="text-xs text-slate-500">[(a)款]</span>');
+                }
+            }
+            if (majorSys.has('smoke')) {
+                if (otherDetection) {
+                    sfdItems.push('<span class="text-emerald-800 font-semibold">排煙系統：免除 SFD（現場另有正常偵測系統覆蓋）</span>');
+                } else {
+                    sfdItems.push('排煙系統：毗鄰其自動啟動裝置安裝 <strong>獨立式火警偵測器 (SFD)</strong> <span class="text-xs text-slate-500">[(b)款]</span>');
+                }
+            }
+            if (majorSys.has('pressurization')) {
+                if (otherDetection) {
+                    sfdItems.push('<span class="text-emerald-800 font-semibold">樓梯加壓系統：免除 SFD（現場另有正常偵測系統覆蓋）</span>');
+                } else {
+                    sfdItems.push('樓梯加壓系統：於起居/使用區域內離出路門 <strong>1 米範圍內</strong>的樓板或假天花底安裝 <strong>獨立式火警偵測器 (SFD)</strong> <span class="text-xs text-slate-500">[(c)款]</span>');
+                }
+            }
+
+            // 3. TMFAD logic
+            if (majorSys.has('alarm')) {
+                tmfadText = '受影響範圍內每個現有手動火警鐘掣位，配置 <strong>1 具臨時手動火警警報裝置 (TMFAD)</strong>；若原設有視像警報（閃燈），TMFAD 須同時整合視像火警警報功能。';
+            }
+
+            // 4. Contingency Plan (CP) logic
+            if (hasDryRiser || hasStreetHydrant) {
+                cpText = '相關行動分隊必須制定包含<strong>中繼供水策略 (Water Relay Strategy)</strong> 的<strong>救援及滅火應變計劃 (CP)</strong>。';
+            }
+
+            // Build Spoken Summary for RFSIC
+            let spokenParts = [];
+            if (hasFHHR && (hasSprinkler || hasWaterSpray)) {
+                spokenParts.push('喺每個喉轆位擺放 2 支 9 公升水劑滅火筒');
+            } else if (hasFHHR) {
+                spokenParts.push('喺每個喉轆位擺放 1 支 9 公升水劑滅火筒');
+            }
+            if ((majorSys.has('sprinkler') || majorSys.has('waterspray') || majorSys.has('detection') || majorSys.has('smoke') || majorSys.has('pressurization')) && !otherDetection) {
+                spokenParts.push('按規定距離裝設獨立式火警偵測器 (SFD)');
+            }
+            if (majorSys.has('alarm')) {
+                spokenParts.push('喺每個現有鐘掣位設置臨時手動火警警報裝置 (TMFAD)');
+            }
+
+            const closingScript = spokenParts.length > 0
+                ? `「由於今次停用屬於重要損壞（Major Defect），根據消防處《附錄 B》指引，請貴公司／物管立即喺受影響範圍落實備用措施，包括：<span class="underline font-bold text-rose-900">${spokenParts.join('，以及')}</span>。請問現場擺齊未？我哋分隊會派員過嚟實地抽查核實。」`
+                : `「由於今次停用屬於重要損壞（Major Defect），請確保現場其他正常系統維持運作，並盡快完成搶修，我哋分隊會制定應變計劃及跟進。」`;
+
+            banner.className = 'rounded-xl p-4 sm:p-5 border-2 border-rose-300 bg-rose-50/70 shadow-sm space-y-4';
+            banner.innerHTML = `
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-rose-200 pb-3">
+                    <div class="flex items-center space-x-2">
+                        <span class="bg-rose-600 text-white text-xs font-bold px-2.5 py-1 rounded-md">屬重要損壞 (MAJOR DEFECT)</span>
+                        <h3 class="text-base sm:text-lg font-bold text-rose-950">3. 法定所需額外備用措施（附錄 B 對照結果）</h3>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <!-- FE Card -->
+                    <div class="bg-white border border-rose-200 rounded-xl p-3.5 shadow-xs">
+                        <div class="text-xs font-bold text-slate-500 uppercase mb-1">🧯 滅火筒要求 (FE)</div>
+                        <div class="text-sm text-slate-800 leading-relaxed">${feText || '<span class="text-slate-400">無須額外配置滅火筒</span>'}</div>
+                    </div>
+
+                    <!-- SFD Card -->
+                    <div class="bg-white border border-rose-200 rounded-xl p-3.5 shadow-xs">
+                        <div class="text-xs font-bold text-slate-500 uppercase mb-1">🚨 獨立式火警偵測器 (SFD)</div>
+                        <div class="text-sm text-slate-800 leading-relaxed">
+                            ${sfdItems.length > 0 ? sfdItems.map(i => `<div>• ${i}</div>`).join('') : '<span class="text-slate-400">無須安裝 SFD</span>'}
+                        </div>
+                    </div>
+
+                    <!-- TMFAD Card -->
+                    <div class="bg-white border border-rose-200 rounded-xl p-3.5 shadow-xs">
+                        <div class="text-xs font-bold text-slate-500 uppercase mb-1">🔔 臨時手動火警警報 (TMFAD)</div>
+                        <div class="text-sm text-slate-800 leading-relaxed">${tmfadText || '<span class="text-slate-400">無須配置 TMFAD</span>'}</div>
+                    </div>
+
+                    <!-- CP Card -->
+                    <div class="bg-white border border-rose-200 rounded-xl p-3.5 shadow-xs">
+                        <div class="text-xs font-bold text-slate-500 uppercase mb-1">🚒 行動分隊應變計劃 (CP)</div>
+                        <div class="text-sm text-slate-800 leading-relaxed">${cpText || '<span class="text-slate-400">無須制定特別中繼供水應變計劃</span>'}</div>
+                    </div>
+                </div>
+
+                <!-- Closing Script to RFSIC -->
+                <div class="bg-amber-50 border border-amber-300 rounded-xl p-3.5 text-sm text-amber-950 leading-relaxed">
+                    <div class="font-bold text-amber-900 text-xs mb-1">📞 電話收尾要求 RFSIC 落實話術（可直接照讀）：</div>
+                    ${closingScript}
+                </div>
+            `;
+        }
+
+        initGrid();
+    </script>
+</body>
+</html>
